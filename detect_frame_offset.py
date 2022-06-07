@@ -290,7 +290,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
                 self.comboBox_size_window.clear()
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.setDisabled(False)
-                self.comboBox_type_window.addItems(['Kaiser-Bessel-derived (KBD) window',
+                self.comboBox_type_window.addItems(['Sine window',
+                                                    'Kaiser-Bessel-derived (KBD) window',
                                                     'Составное окно (слева KBD справа sine)',
                                                     'Составное окно (слева sine справа KBD)'])
                 self.comboBox_size_window.clear()
