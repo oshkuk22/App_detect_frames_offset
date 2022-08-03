@@ -29,6 +29,9 @@ def open_file_(name_file):
     try:
         sound_file = AudioSegment.from_file(name_file)
         audio_samples = sound_file.get_array_of_samples()
+        sound_file.export('temp.wav', format='wav')
+        # with open(os.path.join(os.path.abspath(os.curdir), 'temp', 'temp.wav'), 'w') as sound_file:
+        #     sound_file.write(audio_samples)
         audio_samples = audio_samples / np.max(audio_samples)
         count_channels = sound_file.channels
         sample_rate = sound_file.frame_rate
@@ -158,7 +161,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.set_dis(True)
         try:
             pygame.init()
-            self.s = pygame.mixer.Sound(self.filename_and_dir)
+            self.s = pygame.mixer.Sound(os.path.join('temp', 'temp.wav'))
             qApp.processEvents()
             self.s.play()
             self.set_dis(False)
