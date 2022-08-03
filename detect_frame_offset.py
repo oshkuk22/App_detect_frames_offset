@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import webbrowser
+import pygame
 from python_speech_features.sigproc import framesig
 from pydub import AudioSegment
 from scipy import signal
@@ -30,7 +31,8 @@ def open_file_(name_file):
         audio_samples = sound_file.get_array_of_samples()
         audio_samples = audio_samples / np.max(audio_samples)
         count_channels = sound_file.channels
-        return audio_samples, count_channels
+        sample_rate = sound_file.frame_rate
+        return audio_samples, count_channels, sample_rate
     except Exception as e:
         message_info(str(e))
         return None, None
@@ -95,9 +97,15 @@ def cos_part(length_window):
 def frames_signal(audio_samples, length_window, win):
     lst = []
     len_frames = (audio_samples.shape[0] - length_window) + 1
-    for elem in range(len_frames):
-        frame = audio_samples[elem:(elem + length_window)] * win
+    if len_frames < 0:
+        for i in range(abs(len_frames) + 1):
+            audio_samples = np.append(audio_samples, 0)
+        frame = audio_samples * win
         lst.append(frame)
+    else:
+        for elem in range(len_frames):
+            frame = audio_samples[elem:(elem + length_window)] * win
+            lst.append(frame)
     return lst
 
 
@@ -113,6 +121,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.label_channel.setVisible(False)
         self.calculate_stop.setVisible(False)
         self.label_channel_cut.setVisible(False)
+        self.play_audio.setVisible(False)
+        self.stop_audio.setVisible(False)
         self.flag_stop = False
 
         for i in range(0, 50000, 1):
@@ -141,6 +151,28 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.calculate_detect.clicked.connect(self.analysis_frame_offset)
         self.calculate_stop.clicked.connect(self.stop_analysis)
         self.button_about_method.clicked.connect(self.about_method)
+        self.play_audio.clicked.connect(self.play_audio_func)
+        self.stop_audio.clicked.connect(self.stop_audio_func)
+
+    def play_audio_func(self):
+        self.set_dis(True)
+        try:
+            pygame.init()
+            self.s = pygame.mixer.Sound(self.filename_and_dir)
+            qApp.processEvents()
+            self.s.play()
+            self.set_dis(False)
+        except Exception as e:
+            self.set_dis(False)
+            message_info(str(e))
+
+    def stop_audio_func(self):
+        try:
+            self.s.stop()
+        except Exception as e:
+            message_info(str(e))
+
+        self.set_dis(False)
 
     @staticmethod
     def about_method():
@@ -174,19 +206,19 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.label_channel.setDisabled(flag_)
         # self.progressBar_calc.setDisabled(flag_)
 
-    def calc_frames_offset(self, audio_samples_, parts_cos_arr, window, size_frames, frame_audio):
+    def calc_frames_offset(self, audio_samples_, parts_cos_arr, window, size_window_len, frame_audio):
         self.progressBar_calc.setValue(0)
         self.progressBar_calc.setVisible(True)
         self.calculate_stop.setVisible(True)
         self.set_dis(True)
         mk_all = []
 
-        if audio_samples_.shape[0] < frame_audio:
-            mdct = frames_signal(np.float16(audio_samples_), size_frames, window)
+        if audio_samples_.shape[0] <= frame_audio:
+            mdct = frames_signal(np.float16(audio_samples_), size_window_len, window)
             mdct = np.vstack(mdct)
-            mdct = (4 / size_frames) * (np.dot(mdct, parts_cos_arr))
+            mdct = (4 / size_window_len) * (np.dot(mdct, parts_cos_arr))
             mk = (10 * np.log10(np.maximum((mdct ** 2) * (10 ** 10), 1)))
-            no_null = np.zeros(audio_samples_.shape[0] - (size_frames - 1))
+            no_null = np.zeros(audio_samples_.shape[0] - (size_window_len - 1))
             for i in range(mk.shape[0]):
                 x = np.where(mk[i, :] == 0)
                 no_null[i] = np.int16(mk[i, x].shape[1])
@@ -196,7 +228,6 @@ class DetectFramesOffset(QtWidgets.QWidget):
             del mk
             del no_null
         else:
-
             if audio_samples_.shape[0] % frame_audio != 0:
                 count = audio_samples_.shape[0] // frame_audio + 1
             else:
@@ -213,29 +244,34 @@ class DetectFramesOffset(QtWidgets.QWidget):
                     self.set_dis(False)
                     break
                 else:
-                    if i == (count - 1):
+                    if i == (count-1):
+
                         audio_frame = (np.float16(audio_samples_[i * frame_audio:]))
-                        mdct = frames_signal(audio_frame, size_frames, window)
+
+                        mdct = frames_signal(audio_frame, size_window_len, window)
                         mdct = np.vstack(mdct)
-                        mdct = (4 / size_frames) * (np.dot(mdct, parts_cos_arr))
+                        mdct = (4 / size_window_len) * (np.dot(mdct, parts_cos_arr))
                         mk = (10 * np.log10(np.maximum((mdct ** 2) * (10 ** 10), 1)))
-                        no_null = np.zeros(audio_frame.shape[0] - (size_frames - 1))
+                        no_null = np.zeros(audio_samples_[i * frame_audio:].shape[0])
+
                         for ind in range(mk.shape[0]):
-                            x = np.where(mk[i, :] == 0)
-                            no_null[i] = np.int16(mk[ind, x].shape[1])
+                            x = np.where(mk[ind, :] == 0)
+                            no_null[ind] = np.int16(mk[ind, x].shape[1])
+
                         mk_all.append(no_null)
+
                         del audio_frame
                         del mdct
                         del mk
                         del no_null
                     else:
                         audio_frame = np.float16(audio_samples_[i * frame_audio:(i * frame_audio) +
-                                                                                frame_audio + size_frames - 1])
-                        mdct = frames_signal(audio_frame, size_frames, window)
+                                                                                frame_audio + size_window_len - 1])
+                        mdct = frames_signal(audio_frame, size_window_len, window)
                         mdct = (np.vstack(mdct))
-                        mdct = (4 / size_frames) * (np.dot(mdct, parts_cos_arr))
+                        mdct = (4 / size_window_len) * (np.dot(mdct, parts_cos_arr))
                         mk = (10 * np.log10(np.maximum((mdct ** 2) * (10 ** 10), 1)))
-                        no_null = np.zeros(audio_frame.shape[0] - (size_frames - 1))
+                        no_null = np.zeros(audio_frame.shape[0] - (size_window_len - 1))
                         for i_ in range(mk.shape[0]):
                             x = np.where(mk[i_, :] == 0)
                             no_null[i_] = np.int16(mk[i_, x].shape[1])
@@ -245,6 +281,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                         del mk
                         del no_null
         self.progressBar_calc.setValue(100)
+        self.set_dis(False)
         return mk_all
 
     def draw_window(self):
@@ -315,6 +352,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
                     elif int(self.comboBox_size_window.currentText()) == 256:
                         alpha = (6 * np.pi)
                     self.window = kbd_sin(int(self.comboBox_size_window.currentText()), alpha, type_win='left_sin')
+                if self.comboBox_type_window.currentText() == 'Sine window':
+                    self.window = win_sinus(int(self.comboBox_size_window.currentText()))
 
             self.draw_window()
 
@@ -339,6 +378,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
                 elif int(self.comboBox_size_window.currentText()) == 256:
                     alpha = (6 * np.pi)
                 self.window = kbd_sin(int(self.comboBox_size_window.currentText()), alpha, type_win='left_sin')
+            if self.comboBox_type_window.currentText() == 'Sine window':
+                self.window = win_sinus(int(self.comboBox_size_window.currentText()))
 
             self.draw_window()
 
@@ -363,18 +404,19 @@ class DetectFramesOffset(QtWidgets.QWidget):
                 self.window = kbd_sin(int(self.comboBox_size_window.currentText()), alpha, type_win='left_sin')
 
             elif self.comboBox_type_window.currentText() == 'Sine window':
-                self.comboBox_size_window.clear()
-                self.comboBox_size_window.addItems(['1152', '384'])
-                self.window = win_sinus(int(self.comboBox_size_window.currentText()))
+                        self.window = win_sinus(int(self.comboBox_size_window.currentText()))
 
             self.draw_window()
 
     def start_setting(self):
         self.comboBox_count_sample.setCurrentIndex(4)
+        self.comboBox_size_window.clear()
+        self.comboBox_type_window.clear()
         self.comboBox_size_window.addItem('1152')
         self.comboBox_size_window.addItem('384')
         self.comboBox_type_window.addItem('Sine window')
-        self.comboBox_type_window.setDisabled(True)
+        self.comboBox_format.setCurrentIndex(0)
+
 
         self.window = win_sinus(int(self.comboBox_size_window.currentText()))
 
@@ -410,6 +452,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.button_about_method.setVisible(flag_)
 
     def open_file(self):
+        self.filename_audio = ''
         filter_f = 'AUDIO (*.wav *.WAV *.Wav *.mp3 *.MP3 *.Mp3 *.wma *.WMA *.Wma *.aac *.AAC *.Acc *.mp4 *.MP4 *.Mp4)'
         options = QFileDialog.DontUseNativeDialog
         self.filename_and_dir, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть аудио", self.directory,
@@ -424,124 +467,64 @@ class DetectFramesOffset(QtWidgets.QWidget):
             self.visible_element(True)
             self.start_setting()
 
+            self.play_audio.setVisible(True)
+            self.stop_audio.setVisible(True)
+
             return self.filename_and_dir
         else:
+            self.play_audio.setVisible(False)
+            self.stop_audio.setVisible(False)
             self.line_filename.setText(u'Аудиофайл не выбран')
 
     def analysis_frame_offset(self):
-        self.label_channel.setVisible(False)
-        audio_samples_, count_channel = open_file_(self.filename_and_dir)
-        audio_samples_2 = audio_samples_
-        audio_samples_ = audio_samples_2[int(self.comboBox_shift.currentText()):]
-        if self.comboBox_count_sample.currentText() != 'весь файл':
-            audio_samples_ = audio_samples_2[:int(self.comboBox_count_sample.currentText())]
-        part_cos_arr = cos_part(int(self.comboBox_size_window.currentText()))
-
-        if audio_samples_ is not None:
+        if self.filename_audio:
+            self.label_channel.setVisible(False)
+            audio_samples_, count_channel, samples_rate = open_file_(self.filename_and_dir)
+            audio_samples_2 = audio_samples_
             if count_channel == 2:
-                qApp.processEvents()
-                self.label_channel_cut.setVisible(True)
-                left_ch, right_ch = more_one_channel(audio_samples_)
-                self.label_channel_cut.setVisible(False)
-
-                self.label_channel.setVisible(True)
-                self.label_channel.setText('Вычисление окон кодирования левого канала')
-
-                mk_left_ = self.calc_frames_offset(left_ch, part_cos_arr, self.window,
-                                                   int(self.comboBox_size_window.currentText()), AUDIO_N)
-
-                self.label_channel.setText('Вычисление окон кодирования правого канала')
-
-                if self.flag_stop:
-                    self.calculate_stop.setVisible(False)
-                    self.progressBar_calc.setValue(0)
-                    self.progressBar_calc.setVisible(False)
-                    self.set_dis(False)
-                    self.label_channel.setVisible(False)
-                    self.flag_stop = False
-                else:
-                    mk_right_ = self.calc_frames_offset(right_ch, part_cos_arr, self.window,
-                                                        int(self.comboBox_size_window.currentText()), AUDIO_N)
-
-                    self.label_channel.setVisible(False)
-
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('График нулей спектра левого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    null_ = np.hstack(mk_left_)
-                    plt.plot(null_)
-                    plt.xlabel('Отсчеты сигнала')
-                    plt.ylabel('Количество нулей в спектре')
-                    plt.show()
-
-                    frames_signal = framesig(null_, round(int(self.comboBox_size_window.currentText()) // 2),
-                                             round(int(self.comboBox_size_window.currentText()) // 2))
-                    win_offset = np.argmax(frames_signal, axis=1)
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('График смещений окон кодирования левого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    plt.plot(win_offset)
-                    plt.xlabel('Номер окна кодирования')
-                    plt.ylabel('Смещение окон (отсчеты)')
-                    plt.show()
-
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('Гистограмма смещений окон кодирования левого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    plt.hist(win_offset, bins=int(self.comboBox_size_window.currentText()) // 2, color='blue')
-                    plt.xlabel('Смещение окон (отсчеты)')
-                    plt.ylabel('Частота встречаемости')
-                    plt.show()
-
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('График нулей спектра правого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    null_ = np.hstack(mk_right_)
-                    plt.plot(null_)
-                    plt.xlabel('Отсчеты сигнала')
-                    plt.ylabel('Количество нулей в спектре')
-                    plt.show()
-
-                    frames_signal = framesig(null_, round(int(self.comboBox_size_window.currentText()) // 2),
-                                             round(int(self.comboBox_size_window.currentText()) // 2))
-                    win_offset = np.argmax(frames_signal, axis=1)
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('График смещений окон кодирования правого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    plt.plot(win_offset)
-                    plt.xlabel('Номер окна кодирования')
-                    plt.ylabel('Смещение окон (отсчеты)')
-                    plt.show()
-
-                    plt.figure()
-                    plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                    plt.title('Гистограмма смещений окон кодирования правого канала' + ' N = ' +
-                              str(int(self.comboBox_size_window.currentText())))
-                    plt.hist(win_offset, bins=int(self.comboBox_size_window.currentText()) // 2, color='blue')
-                    plt.xlabel('Смещение окон (отсчеты)')
-                    plt.ylabel('Частота встречаемости')
-                    plt.show()
-
+                audio_samples_ = audio_samples_2[2 * int(self.comboBox_shift.currentText()):]
+                if self.comboBox_count_sample.currentText() != 'весь файл':
+                    audio_samples_ = audio_samples_2[:2 * int(self.comboBox_count_sample.currentText())]
             else:
-                if self.flag_stop:
-                    message_info('Вы остановили вычисления')
-                    self.progressBar_calc.setValue(0)
-                    self.progressBar_calc.setVisible(False)
-                    self.set_dis(False)
-                else:
-                    mk_all_ = self.calc_frames_offset(audio_samples_, part_cos_arr, self.window,
-                                                      int(self.comboBox_size_window.currentText()), 50000)
-                    if not self.flag_stop:
+                audio_samples_ = audio_samples_2[int(self.comboBox_shift.currentText()):]
+                if self.comboBox_count_sample.currentText() != 'весь файл':
+                    audio_samples_ = audio_samples_2[:int(self.comboBox_count_sample.currentText())]
+            part_cos_arr = cos_part(int(self.comboBox_size_window.currentText()))
+
+            if audio_samples_ is not None:
+                if count_channel == 2:
+                    qApp.processEvents()
+                    self.label_channel_cut.setVisible(True)
+                    left_ch, right_ch = more_one_channel(audio_samples_)
+                    self.label_channel_cut.setVisible(False)
+
+                    self.label_channel.setVisible(True)
+                    self.label_channel.setText('Вычисление окон кодирования левого канала')
+
+                    mk_left_ = self.calc_frames_offset(left_ch, part_cos_arr, self.window,
+                                                       int(self.comboBox_size_window.currentText()), AUDIO_N)
+
+                    self.label_channel.setText('Вычисление окон кодирования правого канала')
+
+                    if self.flag_stop:
+                        self.calculate_stop.setVisible(False)
+                        self.progressBar_calc.setValue(0)
+                        self.progressBar_calc.setVisible(False)
+                        self.set_dis(False)
+                        self.label_channel.setVisible(False)
+                        self.flag_stop = False
+                    else:
+                        mk_right_ = self.calc_frames_offset(right_ch, part_cos_arr, self.window,
+                                                            int(self.comboBox_size_window.currentText()), AUDIO_N)
+
+                        self.label_channel.setVisible(False)
+
                         plt.figure()
                         plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                        plt.title('График нулей спектра окон кодирования' + ' N = ' +
+                        plt.title('График нулей спектра левого канала' + ' N = ' +
                                   str(int(self.comboBox_size_window.currentText())))
-                        null_ = np.hstack(mk_all_)
+
+                        null_ = np.hstack((mk_left_))
                         plt.plot(null_)
                         plt.xlabel('Отсчеты сигнала')
                         plt.ylabel('Количество нулей в спектре')
@@ -552,24 +535,107 @@ class DetectFramesOffset(QtWidgets.QWidget):
                         win_offset = np.argmax(frames_signal, axis=1)
                         plt.figure()
                         plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                        plt.title('График смещений окон кодирования' + ' N = ' +
+                        plt.title('График смещений окон кодирования левого канала' + ' N = ' +
                                   str(int(self.comboBox_size_window.currentText())))
-                        plt.plot(win_offset)
-                        plt.xlabel('Номер окна кодирования')
+                        time__l = np.empty([0])
+                        for i, j in enumerate(win_offset):
+                            time__l = np.append(time__l, (i * 1152) / (2 * samples_rate))
+                        plt.plot(time__l, win_offset)
+                        plt.xlabel('Время')
                         plt.ylabel('Смещение окон (отсчеты)')
                         plt.show()
 
                         plt.figure()
                         plt.gcf().canvas.manager.set_window_title(self.filename_audio)
-                        plt.title('Гистограмма смещений окон кодирования' + ' N = ' +
+                        plt.title('Гистограмма смещений окон кодирования левого канала' + ' N = ' +
                                   str(int(self.comboBox_size_window.currentText())))
                         plt.hist(win_offset, bins=int(self.comboBox_size_window.currentText()) // 2, color='blue')
                         plt.xlabel('Смещение окон (отсчеты)')
                         plt.ylabel('Частота встречаемости')
                         plt.show()
-            self.flag_stop = False
+
+                        plt.figure()
+                        plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                        plt.title('График нулей спектра правого канала' + ' N = ' +
+                                  str(int(self.comboBox_size_window.currentText())))
+                        null_ = np.hstack(mk_right_)
+                        plt.plot(null_)
+                        plt.xlabel('Отсчеты сигнала')
+                        plt.ylabel('Количество нулей в спектре')
+                        plt.show()
+
+                        frames_signal = framesig(null_, round(int(self.comboBox_size_window.currentText()) // 2),
+                                                 round(int(self.comboBox_size_window.currentText()) // 2))
+                        win_offset = np.argmax(frames_signal, axis=1)
+                        plt.figure()
+                        plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                        plt.title('График смещений окон кодирования правого канала' + ' N = ' +
+                                  str(int(self.comboBox_size_window.currentText())))
+                        time__r = np.empty([0])
+                        for i, j in enumerate(win_offset):
+                            time__r = np.append(time__r, (i * 1152) / (2 * samples_rate))
+                        plt.plot(time__r, win_offset)
+                        plt.xlabel('Время')
+                        plt.ylabel('Смещение окон (отсчеты)')
+                        plt.show()
+
+                        plt.figure()
+                        plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                        plt.title('Гистограмма смещений окон кодирования правого канала' + ' N = ' +
+                                  str(int(self.comboBox_size_window.currentText())))
+                        plt.hist(win_offset, bins=int(self.comboBox_size_window.currentText()) // 2, color='blue')
+                        plt.xlabel('Смещение окон (отсчеты)')
+                        plt.ylabel('Частота встречаемости')
+                        plt.show()
+
+                else:
+                    if self.flag_stop:
+                        message_info('Вы остановили вычисления')
+                        self.progressBar_calc.setValue(0)
+                        self.progressBar_calc.setVisible(False)
+                        self.set_dis(False)
+                    else:
+                        mk_all_ = self.calc_frames_offset(audio_samples_, part_cos_arr, self.window,
+                                                          int(self.comboBox_size_window.currentText()), AUDIO_N)
+                        if not self.flag_stop:
+                            plt.figure()
+                            plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                            plt.title('График нулей спектра окон кодирования' + ' N = ' +
+                                      str(int(self.comboBox_size_window.currentText())))
+                            null_ = np.hstack(mk_all_)
+                            plt.plot(null_)
+                            plt.xlabel('Отсчеты сигнала')
+                            plt.ylabel('Количество нулей в спектре')
+                            plt.show()
+
+                            frames_signal = framesig(null_, round(int(self.comboBox_size_window.currentText()) // 2),
+                                                     round(int(self.comboBox_size_window.currentText()) // 2))
+                            win_offset = np.argmax(frames_signal, axis=1)
+                            plt.figure()
+                            plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                            plt.title('График смещений окон кодирования' + ' N = ' +
+                                      str(int(self.comboBox_size_window.currentText())))
+                            time__ = np.empty([0])
+                            for i, j in enumerate(win_offset):
+                                time__ = np.append(time__, (i * 1152) / (2 * samples_rate))
+                            plt.plot(time__, win_offset)
+                            plt.xlabel('Время')
+                            plt.ylabel('Смещение окон (отсчеты)')
+                            plt.show()
+
+                            plt.figure()
+                            plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+                            plt.title('Гистограмма смещений окон кодирования' + ' N = ' +
+                                      str(int(self.comboBox_size_window.currentText())))
+                            plt.hist(win_offset, bins=int(self.comboBox_size_window.currentText()) // 2, color='blue')
+                            plt.xlabel('Смещение окон (отсчеты)')
+                            plt.ylabel('Частота встречаемости')
+                            plt.show()
+                self.flag_stop = False
+            else:
+                message_info('Не удается прочитать файл: ' + self.filename_audio)
         else:
-            message_info('Не удается прочитать файл: ' + self.filename_audio)
+            message_info('Выберите файл для анализа')
 
     def closeEvent(self, event):
         list_file = os.listdir(os.path.join('temp'))
