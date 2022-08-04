@@ -50,7 +50,7 @@ background-color: rgb(49, 34, 135);</string>
       </property>
       <property name="icon">
        <iconset>
-        <normaloff>../../../split_and_tokinize/form/icon/openfile.ico</normaloff>../../../split_and_tokinize/form/icon/openfile.ico</iconset>
+        <normaloff>icons/openfile.ico</normaloff>icons/openfile.ico</iconset>
       </property>
       <property name="iconSize">
        <size>
