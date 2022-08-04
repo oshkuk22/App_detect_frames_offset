@@ -29,9 +29,7 @@ def open_file_(name_file):
     try:
         sound_file = AudioSegment.from_file(name_file)
         audio_samples = sound_file.get_array_of_samples()
-        sound_file.export('temp.wav', format='wav')
-        # with open(os.path.join(os.path.abspath(os.curdir), 'temp', 'temp.wav'), 'w') as sound_file:
-        #     sound_file.write(audio_samples)
+        sound_file.export(os.path.join('temp', 'temp.wav'), format='wav')
         audio_samples = audio_samples / np.max(audio_samples)
         count_channels = sound_file.channels
         sample_rate = sound_file.frame_rate
@@ -126,6 +124,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.label_channel_cut.setVisible(False)
         self.play_audio.setVisible(False)
         self.stop_audio.setVisible(False)
+        self.oscilo_audio.setVisible(False)
         self.flag_stop = False
 
         for i in range(0, 50000, 1):
@@ -156,6 +155,16 @@ class DetectFramesOffset(QtWidgets.QWidget):
         self.button_about_method.clicked.connect(self.about_method)
         self.play_audio.clicked.connect(self.play_audio_func)
         self.stop_audio.clicked.connect(self.stop_audio_func)
+        self.oscilo_audio.clicked.connect(self.oscilo_audio_func)
+
+    def oscilo_audio_func(self):
+        plt.figure()
+        plt.gcf().canvas.manager.set_window_title(self.filename_audio)
+        plt.title('Осцилограмма файла ' + self.filename_audio)
+        plt.xlabel('Отсчеты сигнала')
+        plt.ylabel('Амплитута')
+        plt.plot(self.audio_samples_)
+        plt.show()
 
     def play_audio_func(self):
         self.set_dis(True)
@@ -472,19 +481,22 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
             self.play_audio.setVisible(True)
             self.stop_audio.setVisible(True)
+            self.oscilo_audio.setVisible(True)
 
-            return self.filename_and_dir
+            self.audio_samples_, self.count_channel, self.samples_rate = open_file_(self.filename_and_dir)
+
+            # return self.filename_and_dir
         else:
             self.play_audio.setVisible(False)
             self.stop_audio.setVisible(False)
+            self.oscilo_audio.setVisible(False)
             self.line_filename.setText(u'Аудиофайл не выбран')
 
     def analysis_frame_offset(self):
         if self.filename_audio:
             self.label_channel.setVisible(False)
-            audio_samples_, count_channel, samples_rate = open_file_(self.filename_and_dir)
-            audio_samples_2 = audio_samples_
-            if count_channel == 2:
+            audio_samples_2 = self.audio_samples_
+            if self.count_channel == 2:
                 audio_samples_ = audio_samples_2[2 * int(self.comboBox_shift.currentText()):]
                 if self.comboBox_count_sample.currentText() != 'весь файл':
                     audio_samples_ = audio_samples_2[:2 * int(self.comboBox_count_sample.currentText())]
@@ -495,7 +507,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
             part_cos_arr = cos_part(int(self.comboBox_size_window.currentText()))
 
             if audio_samples_ is not None:
-                if count_channel == 2:
+                if self.count_channel == 2:
                     qApp.processEvents()
                     self.label_channel_cut.setVisible(True)
                     left_ch, right_ch = more_one_channel(audio_samples_)
@@ -542,7 +554,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                                   str(int(self.comboBox_size_window.currentText())))
                         time__l = np.empty([0])
                         for i, j in enumerate(win_offset):
-                            time__l = np.append(time__l, (i * 1152) / (2 * samples_rate))
+                            time__l = np.append(time__l, (i * 1152) / (2 * self.samples_rate))
                         plt.plot(time__l, win_offset)
                         plt.xlabel('Время')
                         plt.ylabel('Смещение окон (отсчеты)')
@@ -576,7 +588,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                                   str(int(self.comboBox_size_window.currentText())))
                         time__r = np.empty([0])
                         for i, j in enumerate(win_offset):
-                            time__r = np.append(time__r, (i * 1152) / (2 * samples_rate))
+                            time__r = np.append(time__r, (i * 1152) / (2 * self.samples_rate))
                         plt.plot(time__r, win_offset)
                         plt.xlabel('Время')
                         plt.ylabel('Смещение окон (отсчеты)')
@@ -620,7 +632,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                                       str(int(self.comboBox_size_window.currentText())))
                             time__ = np.empty([0])
                             for i, j in enumerate(win_offset):
-                                time__ = np.append(time__, (i * 1152) / (2 * samples_rate))
+                                time__ = np.append(time__, (i * 1152) / (2 * self.samples_rate))
                             plt.plot(time__, win_offset)
                             plt.xlabel('Время')
                             plt.ylabel('Смещение окон (отсчеты)')
