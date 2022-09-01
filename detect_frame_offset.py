@@ -465,7 +465,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
     def open_file(self):
         self.filename_audio = ''
-        filter_f = 'AUDIO (*.wav *.WAV *.Wav *.mp3 *.MP3 *.Mp3 *.wma *.WMA *.Wma *.aac *.AAC *.Acc *.mp4 *.MP4 *.Mp4)'
+        filter_f = 'AUDIO (*.wav *.WAV *.Wav *.mp3 *.MP3 *.Mp3 *.wma *.WMA *.Wma *.aac *.AAC *.Acc *.mp4 *.MP4 *.Mp4' \
+                   ' *m4a)'
         options = QFileDialog.DontUseNativeDialog
         self.filename_and_dir, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть аудио", self.directory,
                                                                          filter_f, options=options)
