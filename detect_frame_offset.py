@@ -16,6 +16,16 @@ from PyQt5.QtGui import QPixmap
 AUDIO_N = 50000
 
 
+def filter_zero(zero_mas):
+    for ind_, el_ in enumerate(zero_mas[:len(zero_mas) - 30]):
+        if ind_ > 29:
+            mean_ = np.mean(zero_mas[ind_ - 15: ind_ + 15])
+        else:
+            mean_ = np.mean(zero_mas[:30])
+        zero_mas[ind_] = el_ - mean_
+    return zero_mas
+
+
 def message_info(message):
     msg = QtWidgets.QMessageBox()
     msg.setIcon(QtWidgets.QMessageBox.Information)
@@ -541,6 +551,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                                   str(int(self.comboBox_size_window.currentText())))
 
                         null_ = np.hstack((mk_left_))
+                        null_ = filter_zero(null_)
                         plt.plot(null_)
                         plt.xlabel('Отсчеты сигнала')
                         plt.ylabel('Количество нулей в спектре')
@@ -575,6 +586,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                         plt.title('График нулей спектра правого канала' + ' N = ' +
                                   str(int(self.comboBox_size_window.currentText())))
                         null_ = np.hstack(mk_right_)
+                        null_ = filter_zero(null_)
                         plt.plot(null_)
                         plt.xlabel('Отсчеты сигнала')
                         plt.ylabel('Количество нулей в спектре')
@@ -613,12 +625,14 @@ class DetectFramesOffset(QtWidgets.QWidget):
                     else:
                         mk_all_ = self.calc_frames_offset(audio_samples_, part_cos_arr, self.window,
                                                           int(self.comboBox_size_window.currentText()), AUDIO_N)
+
                         if not self.flag_stop:
                             plt.figure()
                             plt.gcf().canvas.manager.set_window_title(self.filename_audio)
                             plt.title('График нулей спектра окон кодирования' + ' N = ' +
                                       str(int(self.comboBox_size_window.currentText())))
                             null_ = np.hstack(mk_all_)
+                            null_ = filter_zero(null_)
                             plt.plot(null_)
                             plt.xlabel('Отсчеты сигнала')
                             plt.ylabel('Количество нулей в спектре')
