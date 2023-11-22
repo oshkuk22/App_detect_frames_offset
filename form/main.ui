@@ -100,12 +100,22 @@ background-color: rgb(49, 34, 135);</string>
       </item>
       <item>
        <property name="text">
-        <string>WMA</string>
+        <string>AAC</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>AAC</string>
+        <string>OPUS</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>VORBIS</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>WMA</string>
        </property>
       </item>
      </widget>
@@ -435,7 +445,7 @@ background-color: rgb(49, 34, 135);</string>
      <x>600</x>
      <y>240</y>
      <width>151</width>
-     <height>31</height>
+     <height>35</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_20">

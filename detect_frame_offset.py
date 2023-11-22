@@ -58,9 +58,9 @@ def more_one_channel(audio_samples_):
 
 
 def win_sinus_ogg_opus(length_window):
-    sinus = np.empty(length_window)
+    sinus = np.empty(round(length_window))
     for k in range(round(length_window)):
-        sinus[k] = np.sin((np.pi / 2) * np.sin((np.pi / length_window) * (k + 0.5)) ** 2)
+        sinus[k] = np.sin((np.pi / 2) * ((np.sin(((k + 0.5) * np.pi) / length_window)) ** 2))
     return sinus
 
 
@@ -334,6 +334,27 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
                 self.window = win_sinus(int(self.comboBox_size_window.currentText()))
 
+            elif self.comboBox_format.currentText() == 'VORBIS':
+                self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_type_window.clear()
+                self.comboBox_type_window.addItem('Quadratic Sine window')
+                self.comboBox_type_window.setDisabled(True)
+                self.comboBox_size_window.clear()
+                self.comboBox_size_window.addItems(['64', '128', '256', '512', '1024', '2048', '4096', '8192', '16384'])
+
+                self.window = win_sinus_ogg_opus(int(self.comboBox_size_window.currentText()))
+
+            elif self.comboBox_format.currentText() == 'OPUS':
+                self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_type_window.clear()
+                self.comboBox_type_window.addItem('Quadratic Sine window')
+                self.comboBox_type_window.setDisabled(True)
+                self.comboBox_size_window.clear()
+                self.comboBox_size_window.addItem('480')
+                self.comboBox_size_window.setDisabled(True)
+
+                self.window = win_sinus_ogg_opus(int(self.comboBox_size_window.currentText()))
+
             elif self.comboBox_format.currentText() == 'WMA':
                 self.comboBox_count_sample.setCurrentIndex(4)
                 self.comboBox_type_window.clear()
@@ -412,6 +433,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
                 elif int(self.comboBox_size_window.currentText()) == 256:
                     alpha = (6 * np.pi)
                 self.window = kbd(int(self.comboBox_size_window.currentText()), alpha)
+
             elif self.comboBox_type_window.currentText() == 'Составное окно (слева KBD справа sine)':
                 if int(self.comboBox_size_window.currentText()) == 2048:
                     alpha = (4 * np.pi)
@@ -427,6 +449,9 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
             elif self.comboBox_type_window.currentText() == 'Sine window':
                         self.window = win_sinus(int(self.comboBox_size_window.currentText()))
+
+            if self.comboBox_type_window.currentText() == 'Quadratic Sine window':
+                self.window = win_sinus_ogg_opus(int(self.comboBox_size_window.currentText()))
 
             self.draw_window()
 
