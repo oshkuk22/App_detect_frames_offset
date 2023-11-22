@@ -325,6 +325,8 @@ class DetectFramesOffset(QtWidgets.QWidget):
         if str(who_is_activate.objectName()) == 'comboBox_format':
             if self.comboBox_format.currentText() == 'MPEG Layer 3':
                 self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_size_window.setDisabled(False)
+                self.comboBox_type_window.setDisabled(False)
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.addItem('Sine window')
                 self.comboBox_type_window.setDisabled(True)
@@ -336,6 +338,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
             elif self.comboBox_format.currentText() == 'VORBIS':
                 self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_size_window.setDisabled(False)
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.addItem('Quadratic Sine window')
                 self.comboBox_type_window.setDisabled(True)
@@ -346,17 +349,25 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
             elif self.comboBox_format.currentText() == 'OPUS':
                 self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_size_window.setDisabled(False)
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.addItem('Quadratic Sine window')
                 self.comboBox_type_window.setDisabled(True)
                 self.comboBox_size_window.clear()
-                self.comboBox_size_window.addItem('480')
-                self.comboBox_size_window.setDisabled(True)
+                self.comboBox_size_window.addItems([str(round(self.samples_rate / 1000 * 2.5)),
+                                                   str(round(self.samples_rate / 1000 * 5)),
+                                                   str(round(self.samples_rate / 1000 * 10)),
+                                                   str(round(self.samples_rate / 1000 * 20)),
+                                                   str(round(self.samples_rate / 1000 * 40)),
+                                                   str(round(self.samples_rate / 1000 * 60))])
+                # self.comboBox_size_window.setDisabled(True)
 
                 self.window = win_sinus_ogg_opus(int(self.comboBox_size_window.currentText()))
 
             elif self.comboBox_format.currentText() == 'WMA':
                 self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_type_window.setDisabled(False)
+                self.comboBox_size_window.setDisabled(False)
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.addItem('Sine window')
                 self.comboBox_type_window.setDisabled(True)
@@ -367,6 +378,7 @@ class DetectFramesOffset(QtWidgets.QWidget):
 
             elif self.comboBox_format.currentText() == 'AAC':
                 self.comboBox_count_sample.setCurrentIndex(4)
+                self.comboBox_size_window.setDisabled(False)
                 self.comboBox_size_window.clear()
                 self.comboBox_type_window.clear()
                 self.comboBox_type_window.setDisabled(False)
